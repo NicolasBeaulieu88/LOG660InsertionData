@@ -1,17 +1,11 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-
 import java.sql.*;
-
 import java.util.ArrayList;
-import java.util.List;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
-
-import javax.swing.*;
 
 
 public class LectureBD {
@@ -388,12 +382,7 @@ public class LectureBD {
       try {
          System.out.println(query);
          stmt.executeQuery(query);
-      } catch (SQLException e){
-         if(e instanceof SQLIntegrityConstraintViolationException)
-            System.out.print("");
-         else
-            e.printStackTrace();
-      }
+      } catch (SQLException e){}
    }
    
    private void insertionFilm(int id, String titre, int annee,
@@ -405,8 +394,8 @@ public class LectureBD {
       if(resume != null) resume = resume.replaceAll("'", "\"");
       titre = titre.replaceAll("'", "\"");
       // On insere le film dans la BD
-      String queryFilm = "INSERT INTO FILM (id, titre, datesortie, langue, IDREALISATEUR, duree, resume, lienaffiche) ";
-      queryFilm += "VALUES ('"+id+"', '"+titre+"', '"+annee+"', '"+langue+"', '"+realisateurId+"', '"+duree+"', '"+resume+"', '"+poster+"')";
+      String queryFilm = "INSERT INTO FILM (id, titre, datesortie, langue, IDREALISATEUR, duree, resume, lienaffiche, nbcopieTotale) ";
+      queryFilm += "VALUES ('"+id+"', '"+titre+"', '"+annee+"', '"+langue+"', '"+realisateurId+"', '"+duree+"', '"+resume+"', '"+poster+"', '"+9+"')";
       ArrayList<String> queries = new ArrayList<>();
 
       for (int i = 0; i < pays.size(); i++) {
@@ -432,9 +421,7 @@ public class LectureBD {
       try {
          System.out.println(queryFilm);
          stmt.executeQuery(queryFilm);
-      }catch (SQLException e) {
-         e.printStackTrace();
-      }
+      }catch (SQLException e) {}
 
       for (int i = 0; i < queries.size(); i++) {
          try {
@@ -472,32 +459,27 @@ public class LectureBD {
       String queryClient = "INSERT INTO CLIENT (id, courriel, numerocartecredit, codeforfait, motdepasse) ";
       queryClient += "VALUES ('"+id+"', '"+courriel+"', '"+noCarte+"', '"+forfait+"', '"+motDePasse+"')";
 
-
+      /**
       try {
-         System.out.println(queryPostal);
+         //System.out.println(queryPostal);
          stmt.executeQuery(queryPostal);
       } catch (SQLException e){}
 
       try {
-         System.out.println(queryUsager);
-         stmt.executeQuery(queryUsager);
+         //System.out.println(queryUsager);
+         //stmt.executeQuery(queryUsager);
       } catch (SQLException e){}
 
       try {
-         System.out.println(queryCarte);
-         stmt.executeQuery(queryCarte);
-      } catch (SQLException e){
-         //e.printStackTrace();
-      }
-
+         //System.out.println(queryCarte);
+         //stmt.executeQuery(queryCarte);
+      } catch (SQLException e){}
+      **/
       try {
          System.out.println(queryClient);
          stmt.executeQuery(queryClient);
       } catch (SQLException e){
-         if(e instanceof SQLIntegrityConstraintViolationException)
-            System.out.println("-");
-         else
-            e.printStackTrace();
+         e.printStackTrace();
       }
 
    }
@@ -515,6 +497,7 @@ public class LectureBD {
                conn.close();
             } catch (Exception except) { }
          }
+         System.exit(1);
       }
    }
 
@@ -529,9 +512,9 @@ public class LectureBD {
    public static void main(String[] args) {
       LectureBD lecture = new LectureBD();
       
-      lecture.lecturePersonnes("C:\\Users\\nicni\\Documents\\ecole\\log660\\data\\personnes_latin1.xml");
-      //lecture.lectureClients("C:\\Users\\nicni\\Documents\\ecole\\log660\\data\\clients_latin1.xml");
-      //lecture.lectureFilms("C:\\Users\\nicni\\Documents\\ecole\\log660\\data\\films_latin1.xml");
+      //lecture.lecturePersonnes("C:\\Users\\nicni\\Documents\\ecole\\log660\\LOG660InsertionData\\data\\personnes_latin1.xml");
+      lecture.lectureClients("C:\\Users\\nicni\\Documents\\ecole\\log660\\LOG660InsertionData\\data\\clients_latin1.xml");
+      //lecture.lectureFilms("C:\\Users\\nicni\\Documents\\ecole\\log660\\LOG660InsertionData\\data\\films_latin1.xml");
 
       lecture.closeBD();
    }
