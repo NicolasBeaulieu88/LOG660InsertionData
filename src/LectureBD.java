@@ -1,0 +1,538 @@
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+import java.sql.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
+
+import javax.swing.*;
+
+
+public class LectureBD {
+
+   static final String DB_URL = "jdbc:oracle:thin:@log660ora12c.logti.etsmtl.ca:1521:LOG660";
+   static final String USER = "EQUIPE105";
+   static final String PASS = "jZA9kMJb";
+   static final String QUERY = "SELECT * FROM v$version";
+
+   private Connection conn;
+   private Statement stmt;
+   private ResultSet rs;
+
+   public class Role {
+      public Role(int i, String n, String p) {
+         id = i;
+         nom = n;
+         personnage = p;
+      }
+      protected int id;
+      protected String nom;
+      protected String personnage;
+   }
+   
+   public LectureBD() {
+      conn = null;
+      stmt = null;
+      rs = null;
+      connectionBD();
+   }
+   
+   
+   public void lecturePersonnes(String nomFichier){      
+      try {
+         XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+         XmlPullParser parser = factory.newPullParser();
+
+         InputStream is = new FileInputStream(nomFichier);
+         parser.setInput(is, null);
+
+         int eventType = parser.getEventType();
+
+         String tag = null, 
+                nom = null,
+                prenom = null,
+                anniversaire = null,
+                lieu = null,
+                photo = null,
+                bio = null;
+         
+         int id = -1;
+         
+         while (eventType != XmlPullParser.END_DOCUMENT) 
+         {
+            if(eventType == XmlPullParser.START_TAG) 
+            {
+               tag = parser.getName();
+               
+               if (tag.equals("personne") && parser.getAttributeCount() == 1)
+                  id = Integer.parseInt(parser.getAttributeValue(0));
+            } 
+            else if (eventType == XmlPullParser.END_TAG) 
+            {                              
+               tag = null;
+               
+               if (parser.getName().equals("personne") && id >= 0)
+               {
+                  insertionPersonne(id,nom,prenom,anniversaire,lieu,photo,bio);
+                                    
+                  id = -1;
+                  nom = null;
+                  prenom = null;
+                  anniversaire = null;
+                  lieu = null;
+                  photo = null;
+                  bio = null;
+               }
+            }
+            else if (eventType == XmlPullParser.TEXT && id >= 0) 
+            {
+               if (tag != null)
+               {                                    
+                  if (tag.equals("nom")){
+                     String[] array = parser.getText().split(" ", 2);
+                     prenom = array[0];
+                     nom = "";
+                     for (int i = 1; i < array.length; i++) {
+                        nom+= array[i];
+                     }
+                  }
+                  else if (tag.equals("anniversaire"))
+                     anniversaire = parser.getText();
+                  else if (tag.equals("lieu"))
+                     lieu = parser.getText();
+                  else if (tag.equals("photo"))
+                     photo = parser.getText();
+                  else if (tag.equals("bio"))
+                     bio = parser.getText();
+               }              
+            }
+            
+            eventType = parser.next();            
+         }
+      }
+      catch (XmlPullParserException e) {
+          System.out.println(e);   
+       }
+       catch (IOException e) {
+         System.out.println("IOException while parsing " + nomFichier); 
+       }
+   }   
+   
+   public void lectureFilms(String nomFichier){
+      try {
+         XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+         XmlPullParser parser = factory.newPullParser();
+
+         InputStream is = new FileInputStream(nomFichier);
+         parser.setInput(is, null);
+
+         int eventType = parser.getEventType();
+
+         String tag = null, 
+                titre = null,
+                langue = null,
+                poster = null,
+                roleNom = null,
+                rolePersonnage = null,
+                realisateurNom = null,
+                resume = null;
+         
+         ArrayList<String> pays = new ArrayList<String>();
+         ArrayList<String> genres = new ArrayList<String>();
+         ArrayList<String> scenaristes = new ArrayList<String>();
+         ArrayList<Role> roles = new ArrayList<Role>();         
+         ArrayList<String> annonces = new ArrayList<String>();
+         
+         int id = -1,
+             annee = -1,
+             duree = -1,
+             roleId = -1,
+             realisateurId = -1;
+         
+         while (eventType != XmlPullParser.END_DOCUMENT) 
+         {
+            if(eventType == XmlPullParser.START_TAG) 
+            {
+               tag = parser.getName();
+               
+               if (tag.equals("film") && parser.getAttributeCount() == 1)
+                  id = Integer.parseInt(parser.getAttributeValue(0));
+               else if (tag.equals("realisateur") && parser.getAttributeCount() == 1)
+                  realisateurId = Integer.parseInt(parser.getAttributeValue(0));
+               else if (tag.equals("acteur") && parser.getAttributeCount() == 1)
+                  roleId = Integer.parseInt(parser.getAttributeValue(0));
+            } 
+            else if (eventType == XmlPullParser.END_TAG) 
+            {                              
+               tag = null;
+               
+               if (parser.getName().equals("film") && id >= 0)
+               {
+                  insertionFilm(id,titre,annee,pays,langue,
+                             duree,resume,genres,realisateurNom,
+                             realisateurId, scenaristes,
+                             roles,poster,annonces);
+                                    
+                  id = -1;
+                  annee = -1;
+                  duree = -1;
+                  titre = null;                                 
+                  langue = null;                  
+                  poster = null;
+                  resume = null;
+                  realisateurNom = null;
+                  roleNom = null;
+                  rolePersonnage = null;
+                  realisateurId = -1;
+                  roleId = -1;
+                  
+                  genres.clear();
+                  scenaristes.clear();
+                  roles.clear();
+                  annonces.clear();  
+                  pays.clear();
+               }
+               if (parser.getName().equals("role") && roleId >= 0) 
+               {              
+                  roles.add(new Role(roleId, roleNom, rolePersonnage));
+                  roleId = -1;
+                  roleNom = null;
+                  rolePersonnage = null;
+               }
+            }
+            else if (eventType == XmlPullParser.TEXT && id >= 0) 
+            {
+               if (tag != null)
+               {                                    
+                  if (tag.equals("titre"))
+                     titre = parser.getText();
+                  else if (tag.equals("annee"))
+                     annee = Integer.parseInt(parser.getText());
+                  else if (tag.equals("pays"))
+                     pays.add(parser.getText());
+                  else if (tag.equals("langue"))
+                     langue = parser.getText();
+                  else if (tag.equals("duree"))                 
+                     duree = Integer.parseInt(parser.getText());
+                  else if (tag.equals("resume"))                 
+                     resume = parser.getText();
+                  else if (tag.equals("genre"))
+                     genres.add(parser.getText());
+                  else if (tag.equals("realisateur"))
+                     realisateurNom = parser.getText();
+                  else if (tag.equals("scenariste"))
+                     scenaristes.add(parser.getText());
+                  else if (tag.equals("acteur"))
+                     roleNom = parser.getText();
+                  else if (tag.equals("personnage"))
+                     rolePersonnage = parser.getText();
+                  else if (tag.equals("poster"))
+                     poster = parser.getText();
+                  else if (tag.equals("annonce"))
+                     annonces.add(parser.getText());                  
+               }              
+            }
+            
+            eventType = parser.next();            
+         }
+      }
+      catch (XmlPullParserException e) {
+          System.out.println(e);   
+      }
+      catch (IOException e) {
+         System.out.println("IOException while parsing " + nomFichier); 
+      }
+   }
+   
+   public void lectureClients(String nomFichier){
+      try {
+         XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+         XmlPullParser parser = factory.newPullParser();
+
+         InputStream is = new FileInputStream(nomFichier);
+         parser.setInput(is, null);
+
+         int eventType = parser.getEventType();               
+
+         String tag = null, 
+                nomFamille = null,
+                prenom = null,
+                courriel = null,
+                tel = null,
+                anniv = null,
+                adresse = null,
+                ville = null,
+                province = null,
+                codePostal = null,
+                carte = null,
+                noCarte = null,
+                motDePasse = null,
+                forfait = null;                                 
+         
+         int id = -1,
+             expMois = -1,
+             expAnnee = -1;
+         
+         while (eventType != XmlPullParser.END_DOCUMENT) 
+         {
+            if(eventType == XmlPullParser.START_TAG) 
+            {
+               tag = parser.getName();
+               
+               if (tag.equals("client") && parser.getAttributeCount() == 1)
+                  id = Integer.parseInt(parser.getAttributeValue(0));
+            } 
+            else if (eventType == XmlPullParser.END_TAG) 
+            {                              
+               tag = null;
+               
+               if (parser.getName().equals("client") && id >= 0)
+               {
+                  insertionClient(id,nomFamille,prenom,courriel,tel,
+                             anniv,adresse,ville,province,
+                             codePostal,carte,noCarte, 
+                             expMois,expAnnee,motDePasse,forfait);               
+                                    
+                  nomFamille = null;
+                  prenom = null;
+                  courriel = null;               
+                  tel = null;
+                  anniv = null;
+                  adresse = null;
+                  ville = null;
+                  province = null;
+                  codePostal = null;
+                  carte = null;
+                  noCarte = null;
+                  motDePasse = null; 
+                  forfait = null;
+                  
+                  id = -1;
+                  expMois = -1;
+                  expAnnee = -1;
+               }
+            }
+            else if (eventType == XmlPullParser.TEXT && id >= 0) 
+            {         
+               if (tag != null)
+               {                                    
+                  if (tag.equals("nom-famille"))
+                     nomFamille = parser.getText();
+                  else if (tag.equals("prenom"))
+                     prenom = parser.getText();
+                  else if (tag.equals("courriel"))
+                     courriel = parser.getText();
+                  else if (tag.equals("tel"))
+                     tel = parser.getText();
+                  else if (tag.equals("anniversaire"))
+                     anniv = parser.getText();
+                  else if (tag.equals("adresse"))
+                     adresse = parser.getText();
+                  else if (tag.equals("ville"))
+                     ville = parser.getText();
+                  else if (tag.equals("province"))
+                     province = parser.getText();
+                  else if (tag.equals("code-postal"))
+                     codePostal = parser.getText();
+                  else if (tag.equals("carte"))
+                     carte = parser.getText();
+                  else if (tag.equals("no"))
+                     noCarte = parser.getText();
+                  else if (tag.equals("exp-mois"))                 
+                     expMois = Integer.parseInt(parser.getText());
+                  else if (tag.equals("exp-annee"))                 
+                     expAnnee = Integer.parseInt(parser.getText());
+                  else if (tag.equals("mot-de-passe"))                 
+                     motDePasse = parser.getText();  
+                  else if (tag.equals("forfait"))                 
+                     forfait = parser.getText(); 
+               }              
+            }
+            
+            eventType = parser.next();            
+         }
+      }
+      catch (XmlPullParserException e) {
+          System.out.println(e);   
+      }
+      catch (IOException e) {
+         System.out.println("IOException while parsing " + nomFichier); 
+      }
+   }   
+   
+   private void insertionPersonne(int id, String nom,String prenom, String anniv, String lieu, String photo, String bio) {
+      if(bio != null){
+         bio = bio.replaceAll("'", "\"");
+         if(bio.length() > 4000)
+            bio = bio.substring(0, 3999);
+      }
+      nom = nom.replaceAll("'", "\"");
+      prenom = prenom.replaceAll("'", "\"");
+      if(anniv != null) anniv = "'"+anniv+"'";
+      if(lieu != null) lieu = "'"+lieu+"'";
+      if(photo != null) photo = "'"+photo+"'";
+      if(bio != null) bio = "'"+bio+"'";
+
+
+      String query = "INSERT INTO PERSONNE (id, nom, prenom, dateNaissance, lieuNaissance, photo, biographie) ";
+      query += "VALUES ('"+id+"', '"+nom+"', '"+prenom+"', "+anniv+", "+lieu+", "+photo+", "+bio+")";
+
+
+
+      try {
+         System.out.println(query);
+         stmt.executeQuery(query);
+      } catch (SQLException e){
+         if(e instanceof SQLIntegrityConstraintViolationException)
+            System.out.print("");
+         else
+            e.printStackTrace();
+      }
+   }
+   
+   private void insertionFilm(int id, String titre, int annee,
+                           ArrayList<String> pays, String langue, int duree, String resume,
+                           ArrayList<String> genres, String realisateurNom, int realisateurId,
+                           ArrayList<String> scenaristes,
+                           ArrayList<Role> roles, String poster,
+                           ArrayList<String> annonces) {
+      if(resume != null) resume = resume.replaceAll("'", "\"");
+      titre = titre.replaceAll("'", "\"");
+      // On insere le film dans la BD
+      String queryFilm = "INSERT INTO FILM (id, titre, datesortie, langue, IDREALISATEUR, duree, resume, lienaffiche) ";
+      queryFilm += "VALUES ('"+id+"', '"+titre+"', '"+annee+"', '"+langue+"', '"+realisateurId+"', '"+duree+"', '"+resume+"', '"+poster+"')";
+      ArrayList<String> queries = new ArrayList<>();
+
+      for (int i = 0; i < pays.size(); i++) {
+         queries.add("INSERT INTO PAYS (nom, idfilm) VALUES ('"+pays.get(i)+"', '"+id+"')");
+      }
+
+      for (int i = 0; i < genres.size(); i++) {
+         queries.add("INSERT INTO GENRE (nom, idfilm) VALUES ('"+genres.get(i)+"', '"+id+"')");
+      }
+
+      for (int i = 0; i < roles.size(); i++) {
+         queries.add("INSERT INTO ROLE (idfilm, idpersonne, nom) VALUES ('"+id+"', '"+roles.get(i).id+"', '"+roles.get(i).nom+"')");
+      }
+
+      for (int i = 0; i < annonces.size(); i++) {
+         queries.add("INSERT INTO BANDEANNONCE (lien, idfilm) VALUES ('"+annonces.get(i)+"', '"+id+"')");
+      }
+
+      for (int i = 0; i < scenaristes.size(); i++) {
+         queries.add("INSERT INTO SCENARISTE (idfilm, idPersonne) SELECT '"+id+"', p.id FROM PERSONNE p WHERE CONCAT(p.prenom, p.nom) == '"+scenaristes.get(i)+"'");
+      }
+
+      try {
+         System.out.println(queryFilm);
+         stmt.executeQuery(queryFilm);
+      }catch (SQLException e) {
+         e.printStackTrace();
+      }
+
+      for (int i = 0; i < queries.size(); i++) {
+         try {
+            System.out.println(queries.get(i));
+            stmt.executeQuery(queries.get(i));
+         } catch (SQLException e) {}
+
+      }
+   }
+   
+   private void insertionClient(int id, String nomFamille, String prenom,
+                             String courriel, String tel, String anniv,
+                             String adresse, String ville, String province,
+                             String codePostal, String carte, String noCarte,
+                             int expMois, int expAnnee, String motDePasse,
+                             String forfait) {
+      adresse = adresse.replaceAll("'", "\"");
+      ville = ville.replaceAll("'", "\"");
+
+      // On insere le code postal
+      /** String queryPostal = "MERGE INTO CODEPOSTAL USING (SELECT 1 \"one\" FROM dual) ";
+      queryPostal += "ON CODEPOSTAL.codepostal = '"+codePostal+"' WHEN NOT matched THEN "; **/
+      String queryPostal = "INSERT INTO CODEPOSTAL (codepostal, ville, province) ";
+      queryPostal += "VALUES ('"+codePostal+"', '"+ville+"', '"+province+"')";
+
+      //On insere l'usager
+      String queryUsager = "INSERT INTO Usager (courriel, nom, prenom, telephone, adresse, codepostal, datenaissance) ";
+      queryUsager += "VALUES ('"+courriel+"', '"+nomFamille+"', '"+prenom+"', '"+tel+"', '"+adresse+"', '"+codePostal+"', '"+anniv+"')";
+
+      //On insere la carte de crédit
+      String queryCarte = "INSERT INTO CARTECREDIT (numero, type, expirationAnnee, expirationMois) ";
+      queryCarte += "VALUES ('"+noCarte+"', '"+carte+"', '"+expAnnee+"', '"+expMois+"')";
+
+      //On insere le client
+      String queryClient = "INSERT INTO CLIENT (id, courriel, numerocartecredit, codeforfait, motdepasse) ";
+      queryClient += "VALUES ('"+id+"', '"+courriel+"', '"+noCarte+"', '"+forfait+"', '"+motDePasse+"')";
+
+
+      try {
+         System.out.println(queryPostal);
+         stmt.executeQuery(queryPostal);
+      } catch (SQLException e){}
+
+      try {
+         System.out.println(queryUsager);
+         stmt.executeQuery(queryUsager);
+      } catch (SQLException e){}
+
+      try {
+         System.out.println(queryCarte);
+         stmt.executeQuery(queryCarte);
+      } catch (SQLException e){
+         //e.printStackTrace();
+      }
+
+      try {
+         System.out.println(queryClient);
+         stmt.executeQuery(queryClient);
+      } catch (SQLException e){
+         if(e instanceof SQLIntegrityConstraintViolationException)
+            System.out.println("-");
+         else
+            e.printStackTrace();
+      }
+
+   }
+   
+   private void connectionBD() {
+
+      try {
+         conn = DriverManager.getConnection(DB_URL, USER, PASS);
+         stmt = conn.createStatement();
+
+      } catch (SQLException e) {
+         e.printStackTrace();
+         if(conn != null) {
+            try {
+               conn.close();
+            } catch (Exception except) { }
+         }
+      }
+   }
+
+   public void closeBD(){
+      if(conn != null) {
+         try {
+            conn.close();
+         } catch (Exception except) { }
+      }
+   }
+
+   public static void main(String[] args) {
+      LectureBD lecture = new LectureBD();
+      
+      lecture.lecturePersonnes("C:\\Users\\nicni\\Documents\\ecole\\log660\\data\\personnes_latin1.xml");
+      //lecture.lectureClients("C:\\Users\\nicni\\Documents\\ecole\\log660\\data\\clients_latin1.xml");
+      //lecture.lectureFilms("C:\\Users\\nicni\\Documents\\ecole\\log660\\data\\films_latin1.xml");
+
+      lecture.closeBD();
+   }
+}
